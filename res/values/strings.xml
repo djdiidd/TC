@@ -1,0 +1,70 @@
+<resources>
+    <!-- Имя приложения -->
+    <string name="app_name">Training Companion</string>
+    <!-- Кнопки Bottom Navigation View -->
+    <string name="button_bnv_start">Start page</string>
+    <string name="button_bnv_list">Show list</string>
+    <!-- Динамическое описание пунктов в диалоговом окне начала тренировки -->
+    <string name="number_of_selected_el">Selected: %d</string>
+    <string name="train_on">Train on: %s</string>
+    <!-- Дефолтные кнопки в диалогах -->
+    <string name="button_dialog_accept">Accept</string>
+    <string name="button_dialog_cancel">Cancel</string>
+    <string name="button_dialog_continue">Continue</string>
+    <string name="button_dialog_reset_all">Reset all</string>
+    <!-- Пункты в диалоговом окне начала тренировки -->
+    <string name="hint_select_body_part">Select part of the body</string>
+    <string name="hint_select_muscles">Select muscles</string>
+    <string name="select_training_place">Training place</string>
+    <string name="description_time_slider">Select time between sets  %s</string>
+    <string name="to_time_slider">(%s sec)</string>
+    <string name="title_start_workout">Start your workout</string>
+    <string name="title_select_muscles">Select muscles you will work out</string>
+    <string name="title_select_body_parts">Select parts of the body</string>
+    <!-- Описание ошибок -->
+    <string name="error_time_slider">Select time!</string>
+    <string name="error_body_parts">Select body parts!</string>
+    <!-- Массив места тренировки -->
+    <string name="array_item_at_home">At home</string>
+    <string name="array_item_in_gym">In the GYM</string>
+    <string name="array_item_outdoors">Outdoors</string>
+    <!-- Массив частей тела -->
+    <string name="array_item_arms">Arms</string>
+    <string name="array_item_legs">Legs</string>
+    <string name="array_item_core">Core</string>
+    <string name="array_item_back">Back</string>
+    <string name="array_item_chest">Chest</string>
+    <!-- Массив мышц -->
+    <string name="array_item_arm_biceps">Arm biceps</string>
+    <string name="array_item_arm_triceps">Arm triceps</string>
+    <string name="array_item_forearm">Forearm muscles</string>
+    <string name="array_item_deltoid">Deltoid muscles</string>
+    <string name="array_item_quadriceps">Quadriceps</string>
+    <string name="array_item_hamstrings">Hamstrings</string>
+    <string name="array_item_glutes">Glutes</string>
+    <string name="array_item_calf">Calf muscles</string>
+    <string name="array_item_rectus_abdominal">Rectus abdominal muscles</string>
+    <string name="array_item_oblique_abdominal">Oblique abdominal muscles</string>
+    <string name="array_item_transversus_abdominis">Transversus abdominis</string>
+    <string name="array_item_trapezius">Trapezius</string>
+    <string name="array_item_latissimus_dorsi">Latissimus dorsi</string>
+    <string name="array_item_posterior_delt">Posterior delt</string>
+    <string name="array_item_lower_back">Lower back</string>
+    <string name="array_item_pectoralis_major">Pectoralis major muscle</string>
+    <string name="array_item_clavicular">Clavicular head</string>
+    <!-- Значения для включателя звука уведомления о начале/заканчивании подходов -->
+    <string name="switch_with_sound">Timer with sound</string>
+    <string name="switch_without_sound">Timer with vibration only</string>
+    <!-- Описания контента -->
+    <string name="content_description_spinner">Select one of three variants of workout placement</string>
+    <string name="content_description_slider">Choose a rest time between sets</string>
+    <!-- Ресурсы для секундомера/таймера -->
+    <string name="full_time_format">%d:%02d:%02d</string>
+    <string name="general_time_start">0:00:00</string>
+    <!-- Ресурсы для DrawerLayout -->
+    <string name="header_change_workout_presets">Change workout</string>
+    <string name="change_body_parts">Change body parts</string>
+    <string name="change_muscles">Change muscles</string>
+    <string name="title_change_workout_params">Here you can change your workout params</string>
+
+</resources>
