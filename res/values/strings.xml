@@ -66,5 +66,11 @@
     <string name="change_body_parts">Change body parts</string>
     <string name="change_muscles">Change muscles</string>
     <string name="title_change_workout_params">Here you can change your workout params</string>
+    <string name="change_rest_time">Change rest time</string>
+    <!-- Диалог изменения времени -->
+    <string name="title_change_rest_time">Rest time changing</string>
+    <string name="dialog_rest_time_sub5">-5</string>
+    <string name="dialog_rest_time_add5">+5</string>
+    <string name="selected_rest_time">Time - %d sec</string>
 
 </resources>

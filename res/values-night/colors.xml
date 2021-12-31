@@ -14,5 +14,5 @@
     <color name="shrine_pink_light">#FEEAE6</color>
     <color name="main_color">#88a2a5</color>
     <color name="red">#EC1D26</color>
-
+    <color name="dialog_button_color">@color/shrine_pink_100</color>
 </resources>

@@ -6,6 +6,7 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.MenuItem
 import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
@@ -23,14 +24,15 @@ import androidx.activity.viewModels
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.companion.android.trainingcompanion.R
-import com.companion.android.trainingcompanion.viewmodels.StartViewModel
+import com.companion.android.trainingcompanion.startdialog.*
+import com.companion.android.trainingcompanion.viewmodels.WorkoutViewModel
 
 
 // Константы для тегов фрагментов
 const val tagMainFragment = "main-fragment"
 const val tagListFragment = "list-fragment"
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
 
     // Инициализация объекта класса привязки данных
     private lateinit var binding: ActivityMainBinding
@@ -40,7 +42,7 @@ class MainActivity : AppCompatActivity() {
     private val timeModel: TimeViewModel by lazy {
         ViewModelProvider(this)[TimeViewModel::class.java]
     }
-    private val startViewModel: StartViewModel by viewModels()
+    private val viewModel: WorkoutViewModel by viewModels()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,14 +65,6 @@ class MainActivity : AppCompatActivity() {
         // Запускаем стартовый фрагмент
         startMainFragment()
 
-        /** Отслеживание начала тренировки */
-        startViewModel.workoutSuccessfullyStarted.observe(this, { workoutStarted ->
-            if (workoutStarted && timeModel.generalTimeIsGoing.value == false) {
-                showTrainToolbar()
-                timeModel.startOrStopTimer(this, serviceIntent)
-            }
-        })
-
     }
 
 
@@ -78,6 +72,59 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Log.d("MyTag", "Activity starts")
+
+        binding.sideNavigationView.setNavigationItemSelectedListener {
+            when (it.itemId) {
+                R.id.item_body_parts -> {// Устанавливаем слушатель для получения списка выбранных частей тела
+                    // По ключу SELECT_BODY_PART_DIALOG_TAG
+                    supportFragmentManager.setFragmentResultListener(
+                        SELECT_BODY_PART_DIALOG, this) { _, bundle ->
+
+                        // В переменную numbersOfSelectedBodyParts записываем arrayList
+                        // полученный из объекта Bundle по ключу BODY_PART_LIST_KEY
+                        val whichBPIsSelected = bundle.getBooleanArray(LIST_BUNDLE_TAG)
+
+                        // Если полученный список не изменился, то перезаписывать данные не будем
+                        if (!viewModel.getWhichBPsAreSelected().toBooleanArray()
+                                .contentEquals(whichBPIsSelected)) {
+                            viewModel.saveSelectedBodyParts(whichBPIsSelected!!.toTypedArray()) // сохранение индексов
+                            // очищаем данные мышц, так как пользователь обновил части тела
+                            viewModel.resetSelectedMuscles()
+                            // Запуск диалогового окна с выбором мышц
+                            MultiChoiceDialog(
+                                viewModel.getMusclesForSelectedBP(this),
+                                viewModel.getWhichMusclesAreSelected().toBooleanArray()
+                            ).show(supportFragmentManager, SELECT_MUSCLE_DIALOG)
+                        }
+                    }
+                    // Запуск диалогового окна с выбором частей тела
+                    MultiChoiceDialog(
+                        viewModel.getAllBP(this),
+                        viewModel.getWhichBPsAreSelected().toBooleanArray()
+                    ).show(supportFragmentManager, SELECT_BODY_PART_DIALOG)
+                }
+                R.id.item_muscles -> {
+                    supportFragmentManager
+                        .setFragmentResultListener(SELECT_MUSCLE_DIALOG, this) {
+                                _, bundle ->
+                        val numbersOfSelectedItems = bundle.getBooleanArray(LIST_BUNDLE_TAG)
+                        viewModel.saveSelectedMuscles(numbersOfSelectedItems!!.toTypedArray())
+                    }
+                    // Запуск диалогового окна с выбором мышц
+                    MultiChoiceDialog(
+                        viewModel.getMusclesForSelectedBP(this),
+                        viewModel.getWhichMusclesAreSelected().toBooleanArray()
+                    ).show(supportFragmentManager, SELECT_MUSCLE_DIALOG)
+                }
+                R.id.item_rest_time -> {
+                    ChangeRestTimeDialog(
+                        if (viewModel.getRestTime() == null) 15
+                        else viewModel.getRestTime()!!
+                    ).show(supportFragmentManager, "")
+                }
+            }
+            true
+        }
 
         // Анимации для нажатий
         val animPressed = AnimationUtils.loadAnimation(this, R.anim.anim_button_pressing)
@@ -147,6 +194,13 @@ class MainActivity : AppCompatActivity() {
             false
         }
 
+        /** Отслеживание начала тренировки */
+        viewModel.workoutSuccessfullyStarted.observe(this, { workoutStarted ->
+            if (workoutStarted && timeModel.generalTimeIsGoing.value == false) {
+                showTrainToolbar()
+                timeModel.startOrStopTimer(this, serviceIntent)
+            }
+        })
     }
 
     /**
@@ -188,6 +242,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onContextItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.item_body_parts -> {
+                Toast.makeText(this, "BP", Toast.LENGTH_SHORT).show()
+            }
+            R.id.item_muscles -> {
+                Toast.makeText(this, "M", Toast.LENGTH_SHORT).show()
+            }
+            R.id.item_rest_time -> {
+                Toast.makeText(this, "RT", Toast.LENGTH_SHORT).show()
+            }
+        }
+        return super.onContextItemSelected(item)
+    }
+
     override fun onStop() {
         super.onStop()
         Log.d("MyTag", "Activity stopped")
@@ -201,6 +270,10 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("1", true)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun restTimeSelected(time: Int) {
+        viewModel.setRestTime(time)
     }
 }
 

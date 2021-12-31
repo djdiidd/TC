@@ -24,4 +24,5 @@
     <color name="dark_grey">#6E7F80</color>
     <color name="test">#4A4458</color>
     <color name="red">#EC1D26</color>
+    <color name="dialog_button_color">@color/white</color>
 </resources>

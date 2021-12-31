@@ -6,10 +6,16 @@
         <menu>
             <item android:title="@string/change_body_parts"
                 android:icon="@drawable/ic_body"
-                android:id="@+id/item_body_parts"/>
+                android:id="@+id/item_body_parts" />
+
             <item android:title="@string/change_muscles"
                 android:icon="@drawable/ic_muscle"
-                android:id="@+id/item_muscles"/>
+                android:id="@+id/item_muscles" />
+
+            <item android:title="@string/change_rest_time"
+                android:icon="@drawable/ic_clock"
+                android:id="@+id/item_rest_time" />
+
         </menu>
     </item>
 </menu>
