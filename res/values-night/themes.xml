@@ -2,7 +2,7 @@
     <!-- Base application theme. -->
     <style name="Theme.TrainingCompanion" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimary">@color/slight</item>
         <item name="colorPrimaryVariant">@color/light</item>
         <item name="colorOnPrimary">@color/white</item>  <!-- slider text -->
         <!-- Secondary brand color. -->
@@ -29,11 +29,13 @@
         <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.App.Title.Text</item>
         <item name="buttonBarPositiveButtonStyle">@style/Widget.App.Button</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.App.Button</item>
+        <item name="android:windowAnimationStyle">@style/SlideLeftToRightDialogAnimation</item>
     </style>
 
     <style name="SplashScreenTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
 
 </resources>

@@ -26,7 +26,8 @@
 
         </activity>
 
-        <service android:name=".utils.TimerService" />
+        <service android:name=".utils.StopwatchService" />
+        <service android:name=".utils.CDTimerService" />
     </application>
 
 </manifest>

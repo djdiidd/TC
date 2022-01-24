@@ -15,4 +15,7 @@
     <color name="main_color">#88a2a5</color>
     <color name="red">#EC1D26</color>
     <color name="dialog_button_color">@color/shrine_pink_100</color>
+    <color name="slider_label_color">#A36838</color>
+    <color name="tick_color_active">@color/slider_label_color</color>
+    <color name="button_color">@color/slight</color>
 </resources>

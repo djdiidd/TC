@@ -13,7 +13,7 @@
     <color name="shrine_pink_900">#442C2E</color>
     <color name="shrine_pink_light">#FEEAE6</color>
     <color name="main_color">#ABCBCF</color>
-    <!-- Testing new colors -->
+    <!-- New colors -->
     <color name="primary">#00acc1</color>
     <color name="light">#5ddef4</color>
     <color name="dark">#007c91</color>
@@ -25,4 +25,8 @@
     <color name="test">#4A4458</color>
     <color name="red">#EC1D26</color>
     <color name="dialog_button_color">@color/white</color>
+    <color name="special_text_color">#181717</color>
+    <color name="slider_label_color">@color/shrine_pink_100</color>
+    <color name="tick_color_active">@color/shrine_pink_100</color>
+    <color name="button_color">@color/black</color>
 </resources>

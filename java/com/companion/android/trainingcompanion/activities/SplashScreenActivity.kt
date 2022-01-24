@@ -1,25 +1,25 @@
 package com.companion.android.trainingcompanion.activities
 
 import android.content.Intent
+import android.content.res.Resources
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
 import android.widget.ImageView
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import com.companion.android.trainingcompanion.R
 
 
 class SplashScreenActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_splash_screen)
-
-        val image = findViewById<ImageView>(R.id.splash_screen_image)
-        image.alpha = 0f
-        image.animate().setDuration(1500).alpha(1f).withEndAction {
-            val i = Intent(this, MainActivity::class.java)
-            startActivity(i)
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-            finish()
-        }
-
+        startActivity(Intent(this@SplashScreenActivity, MainActivity::class.java))
+        finish()
     }
+
 }

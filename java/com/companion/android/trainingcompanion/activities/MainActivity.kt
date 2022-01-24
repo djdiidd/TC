@@ -4,9 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.os.Looper
+import android.os.Handler
 import android.util.Log
-import android.view.MenuItem
 import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
@@ -15,16 +14,17 @@ import androidx.lifecycle.ViewModelProvider
 import com.companion.android.trainingcompanion.databinding.ActivityMainBinding
 import com.companion.android.trainingcompanion.fragments.ListFragment
 import com.companion.android.trainingcompanion.fragments.MainFragment
-import com.companion.android.trainingcompanion.utils.TimerService
-import com.companion.android.trainingcompanion.viewmodels.TimeViewModel
+import com.companion.android.trainingcompanion.utils.StopwatchService
+import com.companion.android.trainingcompanion.viewmodels.StopwatchViewModel
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
-import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.core.view.GravityCompat
+import androidx.core.view.get
 import androidx.drawerlayout.widget.DrawerLayout
+import com.companion.android.trainingcompanion.objects.Place
 import com.companion.android.trainingcompanion.R
-import com.companion.android.trainingcompanion.startdialog.*
+import com.companion.android.trainingcompanion.dialogs.*
 import com.companion.android.trainingcompanion.viewmodels.WorkoutViewModel
 
 
@@ -32,23 +32,24 @@ import com.companion.android.trainingcompanion.viewmodels.WorkoutViewModel
 const val tagMainFragment = "main-fragment"
 const val tagListFragment = "list-fragment"
 
-class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
+class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangePlaceDialog.Callback,
+    WarningUnusedBPDialog.Callback, BreakNotificationDialog.Callback {
 
     // Инициализация объекта класса привязки данных
     private lateinit var binding: ActivityMainBinding
     // Инициализация объекта Intent для общего времени
     private lateinit var serviceIntent: Intent
     // ViewModel для инкапсуляции некоторых данных времени
-    private val timeModel: TimeViewModel by lazy {
-        ViewModelProvider(this)[TimeViewModel::class.java]
+    private val stopwatchModel: StopwatchViewModel by lazy {
+        ViewModelProvider(this)[StopwatchViewModel::class.java]
     }
+    // Основная ViewModel, инкапсулирующая данные тренировки
     private val viewModel: WorkoutViewModel by viewModels()
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.d("MyTag", "Activity created")
+        Log.d("FFF", "onCreate")
         binding = DataBindingUtil // определяем привязку данных
             .setContentView(this, R.layout.activity_main)
 
@@ -59,9 +60,9 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
             hideTrainToolbar() // Скрываем таймер до начала тренировки
 
         // Инициализация интента для класса сервиса
-        serviceIntent = Intent(applicationContext, TimerService::class.java)
+        serviceIntent = Intent(applicationContext, StopwatchService::class.java)
         // Связывание объекта отправляющего обновленное время и получающего по интенту TIMER_UPDATED
-        registerReceiver(timeModel.updateTime, IntentFilter(TimerService.TIMER_UPDATED))
+        registerReceiver(stopwatchModel.updateTime, IntentFilter(StopwatchService.TIMER_UPDATED))
         // Запускаем стартовый фрагмент
         startMainFragment()
 
@@ -71,28 +72,26 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
     @SuppressLint("ClickableViewAccessibility")
     override fun onStart() {
         super.onStart()
-        Log.d("MyTag", "Activity starts")
 
+        /** Слушатель нажатия для элементов бокового меню (с изменениями параметров) */
         binding.sideNavigationView.setNavigationItemSelectedListener {
+
             when (it.itemId) {
-                R.id.item_body_parts -> {// Устанавливаем слушатель для получения списка выбранных частей тела
+            // Изменение списка выбранных частей тела
+                R.id.item_body_parts -> {
                     // По ключу SELECT_BODY_PART_DIALOG_TAG
                     supportFragmentManager.setFragmentResultListener(
                         SELECT_BODY_PART_DIALOG, this) { _, bundle ->
-
                         // В переменную numbersOfSelectedBodyParts записываем arrayList
                         // полученный из объекта Bundle по ключу BODY_PART_LIST_KEY
                         val whichBPIsSelected = bundle.getBooleanArray(LIST_BUNDLE_TAG)
-
                         // Если полученный список не изменился, то перезаписывать данные не будем
                         if (!viewModel.getWhichBPsAreSelected().toBooleanArray()
                                 .contentEquals(whichBPIsSelected)) {
-                            viewModel.saveSelectedBodyParts(whichBPIsSelected!!.toTypedArray()) // сохранение индексов
-                            // очищаем данные мышц, так как пользователь обновил части тела
-                            viewModel.resetSelectedMuscles()
+                            viewModel.updateData(this, whichBPIsSelected!!.toTypedArray())
                             // Запуск диалогового окна с выбором мышц
                             MultiChoiceDialog(
-                                viewModel.getMusclesForSelectedBP(this),
+                                viewModel.getAvailableMuscles(this),
                                 viewModel.getWhichMusclesAreSelected().toBooleanArray()
                             ).show(supportFragmentManager, SELECT_MUSCLE_DIALOG)
                         }
@@ -103,6 +102,7 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
                         viewModel.getWhichBPsAreSelected().toBooleanArray()
                     ).show(supportFragmentManager, SELECT_BODY_PART_DIALOG)
                 }
+            // Изменение списка выбранных мышц
                 R.id.item_muscles -> {
                     supportFragmentManager
                         .setFragmentResultListener(SELECT_MUSCLE_DIALOG, this) {
@@ -112,23 +112,32 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
                     }
                     // Запуск диалогового окна с выбором мышц
                     MultiChoiceDialog(
-                        viewModel.getMusclesForSelectedBP(this),
+                        viewModel.getAvailableMuscles(this),
                         viewModel.getWhichMusclesAreSelected().toBooleanArray()
                     ).show(supportFragmentManager, SELECT_MUSCLE_DIALOG)
                 }
+            // Изменение времени отдыха между подходами
                 R.id.item_rest_time -> {
                     ChangeRestTimeDialog(
-                        if (viewModel.getRestTime() == null) 15
-                        else viewModel.getRestTime()!!
+                        viewModel.restTime.value!!
                     ).show(supportFragmentManager, "")
+                }
+                R.id.item_place -> {
+                    ChangePlaceDialog(viewModel.getTrainingPlace())
+                        .show(supportFragmentManager, "")
+                }
+                R.id.item_switch_mute -> {
+                    BreakNotificationDialog(viewModel.getBreakNotificationMode())
+                        .show(supportFragmentManager, "")
                 }
             }
             true
         }
 
         // Анимации для нажатий
-        val animPressed = AnimationUtils.loadAnimation(this, R.anim.anim_button_pressing)
-        val animUnpressed = AnimationUtils.loadAnimation(this, R.anim.anim_button_unpressing)
+        val animPressed = AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
+        val animUnpressed = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
+
 
         /** Слушатель для Bottom Navigation View */
         binding.bottomNavigationView.setOnItemSelectedListener { item->
@@ -162,15 +171,16 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
         }
         /** Слушатель _нажатия_ для кнопки паузы/продолжения общего времени на Toolbar*/
         binding.pauseResumeButton.setOnClickListener {
-            if (timeModel.generalTimeIsGoing.value == true) {
-                timeModel.startOrStopTimer(this, serviceIntent)
+            if (stopwatchModel.generalTimeIsGoing.value == true) {
+                stopwatchModel.startOrStopTimer(this, serviceIntent)
             }
             else {
-                it.isClickable = false
-                android.os.Handler(Looper.getMainLooper()).postDelayed({
-                    timeModel.startOrStopTimer(this, serviceIntent)
-                    it.isClickable = true
-                }, 700)
+                it.isEnabled = false
+                stopwatchModel.startOrStopTimer(this, serviceIntent)
+                Handler(mainLooper).postDelayed( {
+                    it.isEnabled = true
+                }, 1000)
+
             }
         }
         /** Слушатель _касания_ для кнопки паузы/продолжения общего времени на Toolbar*/
@@ -196,9 +206,11 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
 
         /** Отслеживание начала тренировки */
         viewModel.workoutSuccessfullyStarted.observe(this, { workoutStarted ->
-            if (workoutStarted && timeModel.generalTimeIsGoing.value == false) {
+            if (workoutStarted && stopwatchModel.generalTimeIsGoing.value == false) {
                 showTrainToolbar()
-                timeModel.startOrStopTimer(this, serviceIntent)
+                stopwatchModel.startOrStopTimer(this, serviceIntent)
+                // Устанавливаем соответствующую иконку
+                updateWorkoutPlaceIcon()
             }
         })
     }
@@ -241,20 +253,15 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
         }
     }
+    private fun updateWorkoutPlaceIcon() {
 
-    override fun onContextItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.item_body_parts -> {
-                Toast.makeText(this, "BP", Toast.LENGTH_SHORT).show()
+        binding.sideNavigationView.menu[0].subMenu[0].setIcon(
+            when (viewModel.getTrainingPlace()) {
+                Place.TRAINING_AT_HOME -> R.drawable.ic_home
+                Place.TRAINING_IN_GYM  -> R.drawable.ic_gym
+                else -> R.drawable.ic_outdoors
             }
-            R.id.item_muscles -> {
-                Toast.makeText(this, "M", Toast.LENGTH_SHORT).show()
-            }
-            R.id.item_rest_time -> {
-                Toast.makeText(this, "RT", Toast.LENGTH_SHORT).show()
-            }
-        }
-        return super.onContextItemSelected(item)
+        )
     }
 
     override fun onStop() {
@@ -272,8 +279,33 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback {
         super.onSaveInstanceState(outState)
     }
 
-    override fun restTimeSelected(time: Int) {
-        viewModel.setRestTime(time)
+    /* Интерфейс */
+    /** Сохранение обновленного значения времени */
+    override fun newRestTimeSelected(time: Int) {
+        viewModel.restTime.value = time
+    }
+
+    /* Интерфейс */
+    /** Сохранение обновленного места тренировки */
+    override fun newWorkoutPlaceSelected(place: Int) {
+        viewModel.setTrainingPlace(place)
+        updateWorkoutPlaceIcon()
+    }
+
+    /* Интерфейс */
+    /** Установка false на неиспользуемыех значениях частей тела */
+    override fun unusedBodyPartsRemoved(whichAreUnusedBP: Array<Boolean>) {
+        val current = viewModel.getWhichBPsAreSelected()
+        for (i in 0 until 5) {
+            if (whichAreUnusedBP[i]) {
+                current[i] = false
+            }
+        }
+        viewModel.updateData(this, current)
+    }
+
+    override fun newBreakNotificationModeSelected(mode: Int) {
+        viewModel.setBreakNotificationMode(mode)
     }
 }
 
