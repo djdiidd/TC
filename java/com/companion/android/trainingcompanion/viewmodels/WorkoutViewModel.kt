@@ -28,8 +28,7 @@ class WorkoutViewModel : ViewModel() {
     // Хранение места тренировки
     private var trainingPlace = Place.TRAINING_AT_HOME
 
-    // TEST
-    val activityJustStopped = MutableLiveData(false)
+    var settingsAlreadyApplied = false
 
 //-----------------------------------/* Геттеры */--------------------------------------------------
 

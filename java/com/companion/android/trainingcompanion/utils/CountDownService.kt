@@ -3,44 +3,49 @@ package com.companion.android.trainingcompanion.utils
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import java.util.TimerTask
 import java.util.Timer
+import java.util.TimerTask
 
 /**
- * Класс для работы основного секундомера в фоновом режиме
+ * Сервис, который обновляет общее время тренировки.
  */
-class StopwatchService : Service() {
-    override fun onBind(p0: Intent?): IBinder? = null
+class CountDownService : Service() {
 
-    // Экземпляр класса для планирования выполнения задачи
+    override fun onBind(p: Intent?): IBinder? = null
+
+    // Объект, который производит счет времени
     private val timer = Timer()
 
     /**
-     * Данный метод начнет свою работу только тогда, когда будет вызвана startService(Intent)
+     * Данный метод сработает после запуска startService(Intent)
      */
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         val time = intent.getIntExtra(TIME_EXTRA, 0)
+        if (time <= 0) {
+            stopSelf(startId)
+        }
         // Отправка обновленного времени на 1 секунду каждую секунду с задержкой 0
         timer.scheduleAtFixedRate(TimeTask(time), 0, 1000)
         return START_NOT_STICKY
     }
 
-    /**
-     * После уничтожения приложения, отменим нашу длительную операцию обновления времени
-     */
+    // При остановке сервиса (по нажатию кнопки пауза)
+    // остановим счет таймера
     override fun onDestroy() {
-        super.onDestroy()
         timer.cancel()
+        super.onDestroy()
     }
 
     /**
-     * Внутренний класс, который выполняет обновление времени
+     * Внутренний класс, который выполняет обновление времени с заданной задержкой и периодом
      */
     private inner class TimeTask(private var time: Int) : TimerTask() {
         // Переопределяем действия, которые будут происходит каждую секунду
         override fun run() {
             val intent = Intent(TIMER_UPDATED)
-            time++ // Обновляем полученное время на секунду
+            time-- // Обновляем полученное время на секунду
+            if (time <= 0)
+                timer.cancel()
             intent.putExtra(TIME_EXTRA, time)
             // Отправляем интент с временем, который будет получен
             sendBroadcast(intent) //  в TimeViewModel.updateTime (Receiver)
@@ -51,7 +56,8 @@ class StopwatchService : Service() {
      * Константы, доступные извне
      */
     companion object {
-        const val TIMER_UPDATED = "timerUpdated"
-        const val TIME_EXTRA = "timerExtra"
+        const val TIMER_UPDATED = "cd-timer-updated"
+        const val TIME_EXTRA = "cd-time-extra"
     }
+
 }

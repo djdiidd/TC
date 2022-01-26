@@ -10,14 +10,12 @@ import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
 import com.companion.android.trainingcompanion.databinding.ActivityMainBinding
 import com.companion.android.trainingcompanion.fragments.ListFragment
 import com.companion.android.trainingcompanion.fragments.MainFragment
 import com.companion.android.trainingcompanion.utils.StopwatchService
-import com.companion.android.trainingcompanion.viewmodels.StopwatchViewModel
+import com.companion.android.trainingcompanion.utils.Stopwatch
 import android.view.animation.AnimationUtils
-import android.widget.ImageView
 import androidx.activity.viewModels
 import androidx.core.view.GravityCompat
 import androidx.core.view.get
@@ -32,6 +30,9 @@ import com.companion.android.trainingcompanion.viewmodels.WorkoutViewModel
 const val tagMainFragment = "main-fragment"
 const val tagListFragment = "list-fragment"
 
+private const val STOPWATCH_IS_GOING = "stopwatch-is-going"
+private const val STOPWATCH_REMAINING_TIME = "stopwatch-current-time"
+
 class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangePlaceDialog.Callback,
     WarningUnusedBPDialog.Callback, BreakNotificationDialog.Callback {
 
@@ -40,15 +41,12 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
     // Инициализация объекта Intent для общего времени
     private lateinit var serviceIntent: Intent
     // ViewModel для инкапсуляции некоторых данных времени
-    private val stopwatchModel: StopwatchViewModel by lazy {
-        ViewModelProvider(this)[StopwatchViewModel::class.java]
-    }
+    private lateinit var stopwatch: Stopwatch
     // Основная ViewModel, инкапсулирующая данные тренировки
     private val viewModel: WorkoutViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         Log.d("FFF", "onCreate")
         binding = DataBindingUtil // определяем привязку данных
             .setContentView(this, R.layout.activity_main)
@@ -61,8 +59,9 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
 
         // Инициализация интента для класса сервиса
         serviceIntent = Intent(applicationContext, StopwatchService::class.java)
+        stopwatch = Stopwatch(this, serviceIntent)
         // Связывание объекта отправляющего обновленное время и получающего по интенту TIMER_UPDATED
-        registerReceiver(stopwatchModel.updateTime, IntentFilter(StopwatchService.TIMER_UPDATED))
+        registerReceiver(stopwatch.newTimeReceiver, IntentFilter(StopwatchService.TIMER_UPDATED))
         // Запускаем стартовый фрагмент
         startMainFragment()
 
@@ -171,17 +170,13 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
         }
         /** Слушатель _нажатия_ для кнопки паузы/продолжения общего времени на Toolbar*/
         binding.pauseResumeButton.setOnClickListener {
-            if (stopwatchModel.generalTimeIsGoing.value == true) {
-                stopwatchModel.startOrStopTimer(this, serviceIntent)
-            }
-            else {
-                it.isEnabled = false
-                stopwatchModel.startOrStopTimer(this, serviceIntent)
-                Handler(mainLooper).postDelayed( {
-                    it.isEnabled = true
-                }, 1000)
+            it.isClickable = false
+            stopwatch.startOrStop()
+            Handler(mainLooper).postDelayed( {
+                it.isClickable = true
+            }, 1000)
 
-            }
+
         }
         /** Слушатель _касания_ для кнопки паузы/продолжения общего времени на Toolbar*/
         binding.pauseResumeButton.setOnTouchListener { view, motionEvent ->
@@ -206,12 +201,14 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
 
         /** Отслеживание начала тренировки */
         viewModel.workoutSuccessfullyStarted.observe(this, { workoutStarted ->
-            if (workoutStarted && stopwatchModel.generalTimeIsGoing.value == false) {
-                showTrainToolbar()
-                stopwatchModel.startOrStopTimer(this, serviceIntent)
-                // Устанавливаем соответствующую иконку
-                updateWorkoutPlaceIcon()
-            }
+            if (!workoutStarted || viewModel.settingsAlreadyApplied) { return@observe }
+
+            Log.d("MyTag", "Started from main")
+            showTrainToolbar()
+            stopwatch.startOrStop()
+            // Устанавливаем соответствующую иконку
+            updateWorkoutPlaceIcon()
+
         })
     }
 
@@ -248,10 +245,10 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
     private fun showTrainToolbar() {
         supportActionBar?.show()
         binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
-        /** Слушатель _нажатия_ для закрытия NavigationView DrawerLayout*/
-        findViewById<ImageView>(R.id.close_nv_button).setOnClickListener {
-            binding.drawerLayout.closeDrawer(GravityCompat.END)
-        }
+//        /** Слушатель _нажатия_ для закрытия NavigationView DrawerLayout*/
+//        findViewById<ImageView>(R.id.close_nv_button).setOnClickListener {
+//            binding.drawerLayout.closeDrawer(GravityCompat.END)
+//        }
     }
     private fun updateWorkoutPlaceIcon() {
 
@@ -266,19 +263,36 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
 
     override fun onStop() {
         super.onStop()
-        Log.d("MyTag", "Activity stopped")
+        Log.d("FFF", "stopped from activity")
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(stopwatch.newTimeReceiver)
         Log.d("MyTag", "Activity destroyed")
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putBoolean("1", true)
+        outState.apply {
+            putBoolean(STOPWATCH_IS_GOING, stopwatch.isGoing())
+            putInt(STOPWATCH_REMAINING_TIME, stopwatch.getRemaining())
+        }
         super.onSaveInstanceState(outState)
     }
 
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        savedInstanceState.also { b->
+            stopwatch.setGoing(b.getBoolean(STOPWATCH_IS_GOING))
+            stopwatch.setTime(b.getInt(STOPWATCH_REMAINING_TIME))
+            binding.generalClock.text = stopwatch.getTimeInFormatHMMSS(stopwatch.getRemaining())
+        }
+        if (stopwatch.isGoing()) {
+            binding.pauseResumeButton.setImageResource(R.drawable.ic_pause)
+        } else {
+            binding.pauseResumeButton.setImageResource(R.drawable.ic_play)
+        }
+        super.onRestoreInstanceState(savedInstanceState)
+    }
     /* Интерфейс */
     /** Сохранение обновленного значения времени */
     override fun newRestTimeSelected(time: Int) {
@@ -307,5 +321,7 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
     override fun newBreakNotificationModeSelected(mode: Int) {
         viewModel.setBreakNotificationMode(mode)
     }
+
+
 }
 
