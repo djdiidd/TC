@@ -1,18 +1,13 @@
 package com.companion.android.trainingcompanion.viewmodels
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.util.Log
-import android.widget.TextView
-import androidx.annotation.IntRange
-import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.companion.android.trainingcompanion.R
 import com.companion.android.trainingcompanion.objects.BreakNotificationMode
 import com.companion.android.trainingcompanion.objects.Place
-import com.companion.android.trainingcompanion.utils.CountDownTimer
+import com.companion.android.trainingcompanion.objects.WorkoutProcess
 
 /**
  * ViewModel для сохранения необходимых данных, выбранных пользователем
@@ -20,6 +15,9 @@ import com.companion.android.trainingcompanion.utils.CountDownTimer
 class WorkoutViewModel : ViewModel() {
 
 //-----------------------------------/* Данные */---------------------------------------------------
+
+    // -> LIVEDATA
+    var activeProcess: Int = WorkoutProcess.NOT_STARTED
 
     // Observable данные:
     val workoutSuccessfullyStarted = MutableLiveData<Boolean>() // Тренировка успешно началась
@@ -43,10 +41,14 @@ class WorkoutViewModel : ViewModel() {
             }
         }
 
+    //DEPRECATED
+    //TODO: Использовать процессы
     var workoutInProgress: Boolean = false
 
 
+
 //-----------------------------------/* Геттеры */--------------------------------------------------
+
 
     fun getWhichBPsAreSelected(): Array<Boolean> = whichBodyPartSelected.copyOf()
 

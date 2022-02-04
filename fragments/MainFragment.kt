@@ -7,8 +7,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.widget.addTextChangedListener
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -52,7 +52,7 @@ class MainFragment : Fragment() {
                 show(this@MainFragment.parentFragmentManager, DIALOG_START)
             }
         }
-        callback?.fragmentUICreated()
+        callback?.fragmentUICreated(binding.setTimer, binding.setTimerProgress)
     }
 
     override fun onStart() {
@@ -101,13 +101,6 @@ class MainFragment : Fragment() {
         callback?.fragmentDestroyed()
     }
 
-    private fun startSetStopwatch() {
-        var counter = 0
-        requireActivity().findViewById<TextView>(R.id.general_clock).addTextChangedListener {
-//            binding.setTimer.text = timer.getTimeInFormatMMSS(counter++)
-        }
-    }
-
     override fun onAttach(context: Context) {
         super.onAttach(context)
         Log.d("LF", "F onAttach")
@@ -123,7 +116,7 @@ class MainFragment : Fragment() {
     interface FragmentCallback {
         fun buttonClicked()
         fun fragmentDestroyed()
-        fun fragmentUICreated()
+        fun fragmentUICreated(textView: TextView, progressBar: ProgressBar)
     }
 
 }

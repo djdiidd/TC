@@ -10,6 +10,8 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
@@ -23,11 +25,10 @@ import com.companion.android.trainingcompanion.dialogs.*
 import com.companion.android.trainingcompanion.fragments.ListFragment
 import com.companion.android.trainingcompanion.fragments.MainFragment
 import com.companion.android.trainingcompanion.objects.Place
-import com.companion.android.trainingcompanion.utils.CountDownService
-import com.companion.android.trainingcompanion.utils.CountDownTimer
-import com.companion.android.trainingcompanion.utils.Stopwatch
-import com.companion.android.trainingcompanion.utils.StopwatchService
+import com.companion.android.trainingcompanion.objects.WorkoutProcess
+import com.companion.android.trainingcompanion.time_utils.*
 import com.companion.android.trainingcompanion.viewmodels.WorkoutViewModel
+import com.google.android.material.textview.MaterialTextView
 
 
 // Константы для тегов фрагментов
@@ -39,9 +40,12 @@ private const val STOPWATCH_REMAINING_TIME = "stopwatch-current-time"
 private const val TIMER_IS_GOING = "timer-is-going"
 private const val TIMER_REMAINING_TIME = "timer-remaining-time"
 private const val TIMER_START_TIME = "timer-start-time"
+private const val EXERCISE_TIME = "exercise-time"
+//private const val TIMER_IS_FINISHED = "timer-is-finished"
 
 class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangePlaceDialog.Callback,
-    WarningUnusedBPDialog.Callback, BreakNotificationDialog.Callback, CountDownTimer.Callback, MainFragment.FragmentCallback {
+    WarningUnusedBPDialog.Callback, BreakNotificationDialog.Callback, CountDownTimer.Callback,
+    MainFragment.FragmentCallback {
 
     // Инициализация объекта класса привязки данных
     private lateinit var binding: ActivityMainBinding
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
     // ViewModel для инкапсуляции некоторых данных времени
     private lateinit var timer: CountDownTimer
 
+    private lateinit var exerciseStopwatch: ExerciseStopwatch
 
     // Основная ViewModel, инкапсулирующая данные тренировки
     private val viewModel: WorkoutViewModel by viewModels()
@@ -80,32 +85,33 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
         // Связывание объекта отправляющего обновленное время и получающего по интенту TIMER_UPDATED
         registerReceiver(stopwatch.newTimeReceiver, IntentFilter(StopwatchService.TIMER_UPDATED))
 
-        // Инициализация интента для класса сервиса
+
+        //TODO: переложить ответственность на класс CountDownTimer.
+        //Инициализация интента для класса сервиса
         timerSIntent = Intent(applicationContext, CountDownService::class.java)
         timer = CountDownTimer(this, timerSIntent)
-        Log.d("MyTag", "When timer created ID is ${timer.ID}")
         // Связывание объекта отправляющего обновленное время и получающего по интенту TIMER_UPDATED
         registerReceiver(timer.timeReceiver, IntentFilter(CountDownService.TIMER_UPDATED))
 
-        if (savedInstanceState != null) {
-            savedInstanceState.apply {
-                timer.isGoing = getBoolean(TIMER_IS_GOING)
-                timer.setTime(getInt(TIMER_REMAINING_TIME))
-                timer.startTime = getInt(TIMER_START_TIME)
-                stopwatch.setTime(getInt(STOPWATCH_REMAINING_TIME))
-                stopwatch.setGoing(getBoolean(STOPWATCH_IS_GOING))
-                binding.generalClock.text = stopwatch.getTimeInFormatHMMSS(stopwatch.getRemaining())
-            }
+        exerciseStopwatch = ExerciseStopwatch(binding.generalClock)
+
+        savedInstanceState?.apply { //TODO: сделать приоритет восстановлений
+            timer.isGoing = getBoolean(TIMER_IS_GOING)
+            timer.setTime(getInt(TIMER_REMAINING_TIME))
+            timer.startTime = getInt(TIMER_START_TIME)
+            stopwatch.setTime(getInt(STOPWATCH_REMAINING_TIME))
+            stopwatch.setGoing(getBoolean(STOPWATCH_IS_GOING))
+            binding.generalClock.text = stopwatch.getTimeInFormatHMMSS(stopwatch.getRemaining())
+            exerciseStopwatch.time = getInt(EXERCISE_TIME)
+            if (viewModel.activeProcess == WorkoutProcess.EXERCISE_STOPWATCH)
+                exerciseStopwatch.`continue`()
         }
-
-
 
         if (stopwatch.isGoing()) {
             binding.pauseResumeButton.setImageResource(R.drawable.ic_pause)
         } else {
             binding.pauseResumeButton.setImageResource(R.drawable.ic_play)
         }
-
 
         // Запускаем стартовый фрагмент
         startMainFragment()
@@ -261,6 +267,7 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
                 findViewById(R.id.set_timer_progress)
             )
 
+            viewModel.activeProcess = WorkoutProcess.TIMER
             Log.d("MyTag", "Started from main")
             showToolbarAndActivateSideMenu()
             stopwatch.startOrStop()
@@ -271,7 +278,7 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
         }
 
         viewModel.restTime.observe(this) {
-            if ((!timer.isGoing && timer.isFinished) || !viewModel.workoutInProgress) //TODO: продумать условие
+            if (viewModel.activeProcess != WorkoutProcess.TIMER) //TODO: протестировать условие
                 timer.setTime(viewModel.restTime.value!! + 1) // На 1 больше, чтобы отсчет начинался с нужного числа
                 Log.d("MyTag", "restTime")
         }
@@ -350,8 +357,9 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
             putInt(STOPWATCH_REMAINING_TIME, stopwatch.getRemaining())
             putInt(TIMER_REMAINING_TIME, timer.getTime())
             putBoolean(TIMER_IS_GOING, timer.isGoing)
-            if (timer.startTime == 0) throw Error("Start Time of Timer is 0")
             putInt(TIMER_START_TIME, timer.startTime)
+            if (viewModel.activeProcess == WorkoutProcess.EXERCISE_STOPWATCH)
+                putInt(EXERCISE_TIME, exerciseStopwatch.time)
         }
         super.onSaveInstanceState(outState)
     }
@@ -386,25 +394,53 @@ class MainActivity : AppCompatActivity(), ChangeRestTimeDialog.Callback, ChangeP
     }
 
     override fun timerFinished() {
-        //startSetStopwatch()TODO:Начать секундомер
+        exerciseStopwatch.start()
+        viewModel.activeProcess = WorkoutProcess.EXERCISE_STOPWATCH
+        exerciseStopwatch.attachUI(
+            binding.generalClock,
+            findViewById(R.id.set_timer),
+            findViewById(R.id.set_timer_progress)
+        )
     }
 
     override fun buttonClicked() {
-        timer.startOrStop()
+        when (viewModel.activeProcess) {
+            WorkoutProcess.TIMER -> {
+                timer.startOrStop()
+            }
+            WorkoutProcess.EXERCISE_STOPWATCH -> {
+                //TODO: Запустить диалоговое окно, в котором будет выбор того, что ты потренил\
+                // Если Пользователь выбрал закончить тренировку, то перебросить его на результаты и изменить viewModel.activeProcess
+                exerciseStopwatch.stop()
+                viewModel.activeProcess = WorkoutProcess.TIMER
+
+                timer.setDefaults(viewModel.restTime.value!!)
+
+
+                registerReceiver(timer.timeReceiver, IntentFilter(CountDownService.TIMER_UPDATED))
+                timer.attachUI( // STOPSHIP: TESTING
+                    findViewById(R.id.set_timer),
+                    findViewById(R.id.set_timer_progress)
+                )
+                timer.startOrStop()
+            }
+            WorkoutProcess.WORKOUT_PAUSED -> {
+                //TODO: не определено.
+            }
+        }
     }
 
     override fun fragmentDestroyed() {
         timer.detachUI()
     }
 
-    override fun fragmentUICreated() {
+    override fun fragmentUICreated(textView: TextView, progressBar: ProgressBar) {
         Log.d("LF", "A fragmentUICreated")
-        if (viewModel.workoutInProgress) {
-            timer.attachUI(
-                findViewById(R.id.set_timer),
-                findViewById(R.id.set_timer_progress),
-            )
+        if (viewModel.activeProcess == WorkoutProcess.TIMER) {
+            timer.attachUI(textView, progressBar)
         }
+        else if (viewModel.activeProcess == WorkoutProcess.EXERCISE_STOPWATCH)
+            exerciseStopwatch.attachUI(binding.generalClock, textView, progressBar)
     }
 }
 
